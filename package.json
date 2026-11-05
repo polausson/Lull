@@ -1,0 +1,35 @@
+{
+  "name": "lull",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "typecheck": "tsc",
+    "preview": "vite preview --host",
+    "test": "tsx --test tests/*.test.ts",
+    "test:sql": "./supabase/tests/run.sh",
+    "icons": "node scripts/icons.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/hanken-grotesk": "^5.2.5",
+    "@supabase/supabase-js": "^2.49.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "workbox-precaching": "^7.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "sharp": "^0.34.0",
+    "tailwindcss": "^4.1.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.2.0",
+    "vite-plugin-pwa": "^1.0.0"
+  }
+}
