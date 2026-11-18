@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MonitorEngine, type MicError, type Health, type DetectorFrame, type AudioState, type ClipStart, type Clip } from '../audio/monitor';
 import { NoisePlayer, type NoiseKind } from '../audio/noise';
-import { suspendAudio, tryResumeAudio } from '../audio/context';
+import { suspendAudio } from '../audio/context';
 import { encodeWav } from '../audio/pcm';
 import type { BabyBackend } from '../lib/backend';
 import { log } from '../lib/log';
@@ -26,9 +26,6 @@ export function useBabyUnit(backend: BabyBackend) {
   const [settings, setSettings] = useStored<BabySettings>('lull-baby-settings', DEFAULTS);
   const [noise, setNoise] = useStored<{ kind: NoiseKind; volume: number }>('lull-noise', { kind: 'rain', volume: 0.45 });
   const [noisePlaying, setNoisePlaying] = useState(false);
-  // Sleep sound that was stopped because Lull left the screen; resumed when it returns.
-  const [noisePaused, setNoisePaused] = useState<NoiseKind | null>(null);
-  const noisePausedRef = useRef<NoiseKind | null>(null);
 
   const [intent, setIntent] = useState(false);          // user wants monitoring on
   const [health, setHealth] = useState<Health>({ audioOk: false, reason: 'not started' });
@@ -158,13 +155,6 @@ export function useBabyUnit(backend: BabyBackend) {
       intentRef.current = true;
       setPermission('granted');
       setNeedsResume(false);
-      const paused = noisePausedRef.current;
-      if (paused) {
-        await playerRef.current!.play(paused);
-        noisePausedRef.current = null;
-        setNoisePaused(null);
-        setNoisePlaying(true);
-      }
       if (playerRef.current!.playing) engineRef.current!.calibrate(4000);
       // The first audio frame triggers onHealth, which sends the heartbeat.
     } catch (e) {
@@ -194,29 +184,16 @@ export function useBabyUnit(backend: BabyBackend) {
   // ---- background / foreground ------------------------------------------------
   useEffect(() => {
     // Lull only makes sound while it's on screen. iOS can keep a closed Home Screen app's
-    // audio playing, so stop the sleep sound and suspend all audio as soon as we're hidden.
+    // audio playing, so turn the sleep sound off and suspend all audio as soon as we're hidden.
+    // The sleep sound stays off when Lull comes back; the user starts it again themselves.
     const silence = (why: string) => {
       const player = playerRef.current!;
       if (player.playing) {
-        noisePausedRef.current = player.kind;
-        setNoisePaused(player.kind);
         player.stop(0);
         setNoisePlaying(false);
         log.info('noise', `stopped: ${why}`);
       }
       suspendAudio();
-    };
-
-    const resumeNoise = async () => {
-      const kind = noisePausedRef.current;
-      if (!kind) return;
-      if (!(await tryResumeAudio())) { log.warn('noise', 'needs a tap to resume'); return; }
-      await playerRef.current!.play(kind);
-      noisePausedRef.current = null;
-      setNoisePaused(null);
-      setNoisePlaying(true);
-      engineRef.current!.calibrate(4000);
-      log.info('noise', 'resumed', kind);
     };
 
     const onVis = async () => {
@@ -228,7 +205,6 @@ export function useBabyUnit(backend: BabyBackend) {
         }
         return;
       }
-      void resumeNoise().catch((e) => log.warn('noise', 'resume failed', String(e)));
       if (!intentRef.current) return;
       log.info('app', 'app visible again; checking audio');
       // Give the engine a moment to report frames, then restart if needed.
@@ -261,8 +237,6 @@ export function useBabyUnit(backend: BabyBackend) {
   // ---- white noise -------------------------------------------------------------
   const playNoise = useCallback(async (kind: NoiseKind) => {
     setNoise((n) => ({ ...n, kind }));
-    noisePausedRef.current = null;
-    setNoisePaused(null);
     await playerRef.current!.play(kind, noise.volume);
     setNoisePlaying(true);
     engineRef.current!.calibrate(4000);
@@ -271,8 +245,6 @@ export function useBabyUnit(backend: BabyBackend) {
 
   const stopNoise = useCallback(() => {
     playerRef.current!.stop();
-    noisePausedRef.current = null;
-    setNoisePaused(null);
     setNoisePlaying(false);
     engineRef.current!.calibrate(3000);
   }, []);
@@ -291,7 +263,7 @@ export function useBabyUnit(backend: BabyBackend) {
 
   return {
     settings, setSettings,
-    noise, noisePlaying, noisePaused, playNoise, stopNoise, setNoiseVolume,
+    noise, noisePlaying, playNoise, stopNoise, setNoiseVolume,
     intent, listening, health, micError, permission, audioState, recording, lastSoundAt,
     serverOk, online, pendingUploads, needsResume, wake,
     start, stop, frameRef,
