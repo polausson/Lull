@@ -125,11 +125,19 @@ export class NoisePlayer {
     if (!this.gain) { this.kind = null; return; }
     const ctx = getAudioContext();
     const { sources, nodes, gain } = this;
-    gain.gain.setTargetAtTime(0, ctx.currentTime, fadeSeconds / 4);
-    setTimeout(() => {
+    const teardown = () => {
       sources.forEach((s) => { try { s.stop(); } catch { /* already stopped */ } });
       nodes.forEach((n) => n.disconnect());
-    }, fadeSeconds * 1000 + 50);
+    };
+    if (fadeSeconds <= 0) {
+      // Immediate: timers may never fire once the page is hidden, so don't rely on one.
+      gain.gain.cancelScheduledValues(ctx.currentTime);
+      gain.gain.value = 0;
+      teardown();
+    } else {
+      gain.gain.setTargetAtTime(0, ctx.currentTime, fadeSeconds / 4);
+      setTimeout(teardown, fadeSeconds * 1000 + 50);
+    }
     this.sources = []; this.nodes = []; this.gain = null; this.kind = null;
   }
 

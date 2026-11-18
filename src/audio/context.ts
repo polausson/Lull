@@ -16,6 +16,19 @@ export function getAudioContext(): AudioContext {
   return ctx;
 }
 
+/** Halts all audio output immediately (used when the app leaves the screen). */
+export function suspendAudio() {
+  if (ctx && ctx.state === 'running') ctx.suspend().catch(() => undefined);
+}
+
+/** Resolves true if audio is running within `ms` (iOS may refuse without a tap). */
+export async function tryResumeAudio(ms = 800): Promise<boolean> {
+  const c = getAudioContext();
+  if (c.state === 'running') return true;
+  await Promise.race([c.resume().catch(() => undefined), new Promise((r) => setTimeout(r, ms))]);
+  return (c.state as string) === 'running';
+}
+
 export async function resumeAudio(): Promise<AudioContext> {
   const c = getAudioContext();
   if (c.state !== 'running') await c.resume();

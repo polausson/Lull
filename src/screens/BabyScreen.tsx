@@ -93,6 +93,11 @@ export function BabyScreen({ status, onPair, onLeft, demo = false }: { status: S
             {b.noisePlaying && <button onClick={b.stopNoise} className="min-h-11 rounded-full px-4 text-[15px] text-mist active:bg-raised">Turn off</button>}
           </div>
           <Segmented label="Sleep sound" options={NOISES} value={b.noisePlaying ? b.noise.kind : null} onChange={(k) => void b.playNoise(k)} />
+          {b.noisePaused && (
+            <p className="mt-3 text-[14px] leading-relaxed text-mist">
+              Stopped when Lull left the screen. Tap {NOISES.find((n) => n.id === b.noisePaused)?.label ?? 'a sound'} to play it again.
+            </p>
+          )}
           <div className="mt-3"><Slider label="Volume" value={b.noise.volume} onChange={b.setNoiseVolume} /></div>
         </Panel>
 
